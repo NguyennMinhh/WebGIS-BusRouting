@@ -94,7 +94,7 @@ class RouteDetailView(APIView):
             })
         
         return Response({
-            "bus_routes": bus_routes[:-1],  # Bỏ route cuối
+            "bus_routes": bus_routes,
             "bus_stations": bus_stations,
         })
 

@@ -45,7 +45,7 @@ export function renderStations(map, stations, icon) {
       L.marker(coords, { icon })
         .addTo(map)
         .bindPopup(
-          `<strong>Name</strong>: ${station.name} - <strong>Code</strong>: ${station.code}`
+          `<strong>ID:</strong> ${station.id} <br> <strong>Name</strong>: ${station.name} <br> <strong>Code</strong>: ${station.code}`
         );
     }
   });
