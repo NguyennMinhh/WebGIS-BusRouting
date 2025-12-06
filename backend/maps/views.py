@@ -184,45 +184,6 @@ class MapView(APIView):
             "qualified_stations": qualified_stations,  # Giữ lại để debug
         })
 
-
-class RouteDetailView(APIView):
-    def get(self, request, route_code):
-        related_routes = BusRoute.objects.filter(route_code=route_code).all()
-        related_stations = BusStation.objects.filter(
-            station_routes__route__route_code=route_code
-        ).distinct()
-
-        bus_stations = []
-        for station in related_stations:
-            rs = RouteStation.objects.filter(
-                route__route_code=route_code,
-                station=station
-            ).first()
-            
-            bus_stations.append({
-                "id": station.id,
-                "code": station.code,
-                "name": station.name,
-                "order": rs.order if rs else None,
-                "geom": station.geom.wkt if station.geom else None
-            })
-
-        bus_routes = []
-        for route in related_routes:
-            bus_routes.append({
-                "id": route.id,
-                "name": route.name,
-                "route_code": route.route_code,
-                "geom": route.geom.wkt if route.geom else None,
-                "direction": route.direction
-            })
-        
-        return Response({
-            "bus_routes": bus_routes,
-            "bus_stations": bus_stations,
-        })
-
-
 class RouteDetailView(APIView):
     def get(self, request, route_code):
         related_routes = BusRoute.objects.filter(route_code=route_code).all()
