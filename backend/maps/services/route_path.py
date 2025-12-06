@@ -3,11 +3,14 @@ from maps.models import RouteStation, BusRoute
 
 def get_route_path(start_order, end_order, route_code):
     if start_order < end_order:
-        route_stations = RouteStation.objects.filter(
-            route__route_code=route_code,
-            order__gte=start_order,
-            order__lte=end_order
-        ).select_related('station', 'route').order_by('order')
+        # ✅ THÊM list() Ở ĐÂY!
+        route_stations = list(
+            RouteStation.objects.filter(
+                route__route_code=route_code,
+                order__gte=start_order,
+                order__lte=end_order
+            ).select_related('station', 'route').order_by('order')
+        )
 
     elif start_order > end_order:
         max_order = RouteStation.objects.filter(
@@ -34,9 +37,8 @@ def get_route_path(start_order, end_order, route_code):
             'message': 'Điểm đi và điểm đến trùng nhau'
         }
 
+    # Xây dựng danh sách stations
     stations = []
-    route_ids = set()
-
     for rs in route_stations:
         stations.append({
             'id': rs.station.id,
@@ -45,24 +47,22 @@ def get_route_path(start_order, end_order, route_code):
             'code': rs.station.code,
             'geom': rs.station.geom.wkt
         })
-        route_ids.add(rs.route.id)
 
+    # FIX: Lấy routes theo đúng thứ tự, bỏ route cuối
     routes = []
-    for route_id in route_ids:
-        route = BusRoute.objects.get(id=route_id)
+    for rs in route_stations[:-1]:  # ✅ Giờ là list, không lỗi
+        route = rs.route
         routes.append({
             'id': route.id,
+            'order': rs.order,
             'name': route.name,
             'route_code': route.route_code,
             'direction': route.direction,
             'geom': route.geom.wkt if route.geom else None
         })
 
-    # Loại bỏ route cuối do bị thừa
-    if start_order < end_order:
-        routes = routes[:-1]
-    elif start_order > end_order:
-        routes = routes[1:]
+    print(f"Stations: {[s['code'] for s in stations]}")
+    print(f"Routes: {[(r['order'], r['name']) for r in routes]}")
 
     return {
         'route_code': route_code,

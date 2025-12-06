@@ -3,7 +3,7 @@ import requests
 def get_route_geom(lat1, lon1, lat2, lon2):
     start = f"{lon1},{lat1}"
     end = f"{lon2},{lat2}"
-    url = f"http://router.project-osrm.org/route/v1/walking/{start};{end}?overview=full&geometries=geojson"
+    url = f"http://router.project-osrm.org/route/v1/foot/{start};{end}?overview=full&geometries=geojson"
 
     response = requests.get(url)
     data = response.json()

@@ -1,10 +1,12 @@
 import { useLocation } from "react-router-dom";
-import { parseLine, parsePoint } from "../utils/geomParser";
+import { parseLine } from "../utils/geomParser";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { useEffect } from "react";
-import { userIcon, goalLocation } from "../utils/icon";
+import { userIcon, goalLocation, busStationIcon } from "../utils/icon";
 import { useRef } from "react";
+
+import { renderStations } from "../utils/mapHelpers";
 
 export default function ResultRoute() {
   const location = useLocation();
@@ -31,22 +33,15 @@ export default function ResultRoute() {
         .bindPopup("<strong>Điểm xuất phát</strong>");
     }
 
-    if (resultRoute.destination_location) {
-      const [desLon, desLat] = resultRoute.destination_location;
+    if (resultRoute.user_destination) {
+      const [desLon, desLat] = resultRoute.user_destination;
       L.marker([desLat, desLon], { icon: goalLocation })
         .addTo(map)
         .bindPopup("<strong>Điểm cần đến</strong>");
     }
 
     // Vẽ các trạm
-    resultRoute.stations.forEach((station) => {
-      const coords = parsePoint(station.geom);
-      if (coords) {
-        L.marker(coords).addTo(map).bindPopup(
-          `${station.name}<br>Order: ${station.order}`
-        );
-      }
-    });
+    renderStations(map, resultRoute.stations, busStationIcon);
 
     // Vẽ các route (không vẽ route của trạm cuối)
     resultRoute.routes.forEach((route) => {
@@ -88,7 +83,7 @@ export default function ResultRoute() {
       );
       L.polyline(coords, {
         color: 'black',
-        weight: 3,
+        weight: 4,
         opacity: 0.8,
         dashArray: '5, 10'
       }).addTo(map).bindPopup(`Đi bộ: ${(resultRoute.start_route_geom.distance / 1000).toFixed(2)}km`);
@@ -101,7 +96,7 @@ export default function ResultRoute() {
       );
       L.polyline(coords, {
         color: 'black',
-        weight: 3,
+        weight: 4,
         opacity: 0.8,
         dashArray: '5, 10'
       }).addTo(map).bindPopup(`Đi bộ: ${(resultRoute.end_route_geom.distance / 1000).toFixed(2)}km`);
@@ -134,7 +129,7 @@ export default function ResultRoute() {
       </div>
 
       {/* Bản đồ */}
-      <div id="result-map" style={{ width: "100%", height: "500px", borderRadius: "8px", marginBottom: "20px" }}></div>
+      <div id="result-map" style={{ width: "100%", height: "800px", borderRadius: "8px", marginBottom: "20px" }}></div>
 
       {/* Danh sách trạm */}
       <h3>Danh sách trạm sẽ đi qua:</h3>

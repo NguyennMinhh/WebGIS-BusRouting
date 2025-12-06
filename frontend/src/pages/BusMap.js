@@ -8,8 +8,11 @@ import { useNavigate } from "react-router-dom";
 import iconUrl from "leaflet/dist/images/marker-icon.png";
 import iconShadow from "leaflet/dist/images/marker-shadow.png";
 
-import { parsePoint, parseLine } from "../utils/geomParser";
-import { userIcon, busStationIcon } from "../utils/icon";
+import { parseLine } from "../utils/geomParser";
+import { busStationIcon } from "../utils/icon";
+import { useDestinationMode } from "../hooks/useDestinationMode";
+import { useUserLocation } from "../hooks/useUserLocation";
+import { zoomToStation, renderStations, renderRoutes } from "../utils/mapHelpers";
 
 const DefaultIcon = L.icon({
   iconUrl,
@@ -22,13 +25,12 @@ L.Marker.prototype.options.icon = DefaultIcon;
 export default function BusMap() {
   const [data, setData] = useState(null);
   const [map, setMap] = useState(null);
-
-  const [destinationMode, setDestinationMode] = useState(false);
-  const [destination, setDestination] = useState(null);
-  const [userLocation, setUserLocation] = useState(null);
-
   const [routeResult, setRouteResult] = useState(null);
   const navigate = useNavigate();
+
+  // Hooks
+  const { userLocation, addUserLocation } = useUserLocation(map);
+  const { destinationMode, destination, toggleDestinationMode } = useDestinationMode(map);
 
   // Lấy dữ liệu API
   useEffect(() => {
@@ -55,131 +57,20 @@ export default function BusMap() {
       attribution: '&copy; <a href="https://www.openstreetmap.org/">OSM</a>',
     }).addTo(map);
 
-    // Vẽ trạm:
-    data.bus_stations.forEach((station) => {
-      const coords = parsePoint(station.geom);
-      if (coords)
-        L.marker(coords, { icon: busStationIcon })
-          .addTo(map)
-          .bindPopup(
-            `<strong>Name</strong>: ${station.name} - <strong>Code</strong>: ${station.code}`
-          );
-    });
+    // Vẽ các trạm:
+    renderStations(map, data.bus_stations, busStationIcon);
 
-    // Vẽ tuyến:
-    data.bus_routes.forEach((route) => {
-      const lineCoords = parseLine(route.geom);
-      if (lineCoords.length) {
-        let color = null;
-        if (route.direction === "go") {
-          color = "#1E90FF";
-        } else if (route.direction === "return") {
-          color = "#FF4500";
-        }
-        const polyline = L.polyline(lineCoords, {
-          color,
-          weight: 6,
-          opacity: 0.8,
-        }).addTo(map);
-
-        polyline.bindPopup(
-          `<strong>Name</strong>:${route.name} - <strong>Route Code</strong>:${route.route_code}`
-        );
-      }
-    });
+    // Vẽ các tuyến:
+    renderRoutes(map, data.bus_routes, parseLine);
 
     setMap(map);
 
     return () => map.remove();
   }, [data]);
 
-  // Thêm vị trí người dùng:
-  const addUserLocation = () => {
-    if (!map) return alert("Map chưa sẵn sàng!");
-
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const { latitude, longitude } = position.coords;
-        setUserLocation({ latitude, longitude });
-        L.marker([latitude, longitude], { icon: userIcon })
-          .addTo(map)
-          .bindPopup("<b>Bạn đang ở đây!</b>")
-          .openPopup();
-
-        map.setView([latitude, longitude], 15);
-      },
-      (error) => {
-        console.log("Lỗi: ", error);
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0,
-      }
-    );
-  };
-
   useEffect(() => {
     console.log("User Location: ", userLocation);
   }, [userLocation]);
-
-  // Lấy vị trí điểm muốn đến
-  useEffect(() => {
-    if (!map || !destinationMode) return;
-
-    const handleClick = (event) => {
-      const { lat, lng } = event.latlng;
-      setDestination({ lat, lng });
-    };
-
-    map.on("click", handleClick);
-    return () => map.off("click", handleClick);
-  }, [map, destinationMode]);
-
-  useEffect(() => {
-    if (!map || !destination) return;
-    console.log("Destination Location: ", destination);
-    const marker = L.marker([destination.lat, destination.lng])
-      .addTo(map)
-      .bindPopup("<b>Điểm Cần Đến!</b>");
-
-    return () => map.removeLayer(marker);
-  }, [destination, map]);
-
-  // Hàm zoom đến trạm khi click vào tên
-  const zoomToStation = (stationName) => {
-    if (!map || !data) return;
-    
-    const station = data.bus_stations.find(s => s.name === stationName);
-    if (!station) return;
-    
-    const coords = parsePoint(station.geom);
-    if (!coords) return;
-    
-    // Zoom đến trạm với animation
-    map.setView(coords, 17, { animate: true, duration: 1 });
-    
-    // Highlight trạm bằng circle
-    const circle = L.circle(coords, {
-      color: '#FF4500',
-      fillColor: '#FF6347',
-      fillOpacity: 0.3,
-      radius: 50
-    }).addTo(map);
-    
-    // Tìm và mở popup của trạm
-    map.eachLayer((layer) => {
-      if (layer instanceof L.Marker) {
-        const popupContent = layer.getPopup()?.getContent();
-        if (popupContent && popupContent.includes(station.code)) {
-          setTimeout(() => layer.openPopup(), 500);
-        }
-      }
-    });
-    
-    // Xóa circle sau 3 giây
-    setTimeout(() => map.removeLayer(circle), 3000);
-  };
 
   if (!data) return <p>Đang tải bản đồ...</p>;
 
@@ -226,7 +117,7 @@ export default function BusMap() {
           </button>
 
           <button
-            onClick={() => setDestinationMode(!destinationMode)}
+            onClick={toggleDestinationMode}
             style={{
               padding: "10px",
               background: destinationMode ? "#FFA500" : "#ccc",
@@ -363,7 +254,7 @@ export default function BusMap() {
                             color: "#1976D2",
                             textDecoration: "underline"
                           }}
-                          onClick={() => zoomToStation(routeResult.shortest_obj.start_station.name)}
+                          onClick={() => zoomToStation(map, data, routeResult.shortest_obj.start_station.name)}
                           title="Click để xem trạm trên bản đồ"
                         >
                           <strong>{routeResult.shortest_obj.start_station.name}</strong> ({routeResult.shortest_obj.start_station.code})
