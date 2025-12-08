@@ -13,7 +13,7 @@ from .get_route_geom import get_route_geom
 class RouteFinder:
     """Service class để tìm tuyến đường bus tối ưu"""
     
-    def __init__(self, start_lat, start_long, end_lat, end_long, meter_radius=12500):
+    def __init__(self, start_lat, start_long, end_lat, end_long, meter_radius=120500):
         self.user_location = Point(start_long, start_lat, srid=4326)
         self.destination_location = Point(end_long, end_lat, srid=4326)
         self.meter_radius = meter_radius
